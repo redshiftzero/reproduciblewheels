@@ -96,11 +96,15 @@ def is_wheel_reproducible(project_name: str) -> Tuple[bool, str, str]:
             '--no-cache-dir']
         )
 
-        wheel_pattern = re.compile(fnmatch.translate(f'{project_name}*.whl'), re.IGNORECASE)
+        # A fun fact is that if the package name is foo-bar, the
+        # built wheel will have the format foo_bar. So, we replace
+        # - with _ for matching purposes.
+        project_name_wheel = project_name.replace('-', '_')
+        wheel_pattern = re.compile(fnmatch.translate(f'{project_name_wheel}*.whl'), re.IGNORECASE)
         matching_wheels = [x for x in os.listdir() if re.match(wheel_pattern, x)]
 
         if len(matching_wheels) != 1:
-            raise RuntimeError(f'uh oh!!!!! found too many wheels: {matching_wheels}')
+            raise RuntimeError(f'uh oh!!!!! found too few or two many wheels: {matching_wheels}')
 
         wheel_file_location = matching_wheels[0]
         hash_result = subprocess.check_output(['shasum', '-a', '256', wheel_file_location])
