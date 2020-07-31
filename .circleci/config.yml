@@ -1,3 +1,14 @@
+---
+common:
+  - &install_dependencies_and_regen_data
+    run:
+      name: Install dependencies and regenerate reproducibility data.
+      command: |
+        virtualenv --python python3 .venv
+        source .venv/bin/activate
+        pip install -r requirements.txt
+        python3 check.py
+
 version: 2
 jobs:
   build37:
@@ -5,25 +16,19 @@ jobs:
       - image: circleci/python:buster
     steps:
       - checkout
-      - run:
-          name: Install dependencies and regenerate reproducibility data.
-          command: |
-            virtualenv --python python3 .venv
-            source .venv/bin/activate
-            pip install -r requirements.txt
-            python3 check.py
+      - *install_dependencies_and_regen_data
   build38:
     docker:
       - image: circleci/python:3.8.0-buster
     steps:
       - checkout
-      - run:
-          name: Install dependencies and regenerate reproducibility data.
-          command: |
-            virtualenv --python python3 .venv
-            source .venv/bin/activate
-            pip install -r requirements.txt
-            python3 check.py
+      - *install_dependencies_and_regen_data
+  deploy:
+    docker:
+      - image: circleci/python:buster
+    steps:
+      - checkout
+      - *install_dependencies_and_regen_data
 
 workflows:
   version: 2
@@ -31,3 +36,13 @@ workflows:
     jobs:
       - build37
       - build38
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - deploy
