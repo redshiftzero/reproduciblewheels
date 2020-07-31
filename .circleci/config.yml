@@ -8,6 +8,7 @@ common:
         source .venv/bin/activate
         pip install -r requirements.txt
         python3 check.py
+        cat site_data.json
 
 version: 2
 jobs:

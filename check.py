@@ -2,12 +2,12 @@ import fnmatch
 import json
 import re
 import requests
-import shutil
 import subprocess
+import tempfile
 import os
 import uuid
 
-from typing import List, Tuple
+from typing import Dict, List, Tuple, Union
 
 
 TOP_PACKAGES_URL = "https://hugovk.github.io/top-pypi-packages/top-pypi-packages-365-days.json"
@@ -15,15 +15,16 @@ MONITOR_LIST_TXT = "watched_packages.txt"
 
 # Packages on FPF mirror + cryptography - THESE_DONT_BUILD_YET
 ADDL_PACKAGES_TO_MONITOR = [
-   "cryptography", "alembic", "arrow", "atomicwrites", "attrs", "certifi", "chardet", "click", "coverage",
-   "flake8", "furl", "idna", "mako", "markupsafe", "mccabe", "more-itertools", "multidict",
-   "orderedmultidict", "pathlib2", "pip-tools", "pluggy", "py", "pycodestyle", "pyflakes",
-   "pytest", "pytest-cov", "pytest-random-order", "python-dateutil",
+   "alembic", "arrow", "atomicwrites", "attrs", "certifi", "chardet", "click", "cryptography",
+   "coverage", "flake8", "furl", "idna", "mako", "markupsafe", "mccabe", "more-itertools",
+   "multidict", "orderedmultidict", "pathlib2", "pip-tools", "pluggy", "py", "pycodestyle",
+   "pyflakes", "pytest", "pytest-cov", "pytest-random-order", "python-dateutil",
    "python-editor", "pyyaml", "redis", "requests", "securedrop-sdk",
    "sip", "six", "sqlalchemy", "urllib3", "vcrpy", "werkzeug", "yarl"]
 THESE_DONT_BUILD_YET = ["pyqt5", "setuptools", "wrapt"]
 REGEX_SOURCE_TARBALL = r'\./[a-zA-Z0-9_.-]*\.tar\.gz'
 REGEX_SHA_256_HASH = r'\b[a-f0-9]+'
+SENTINEL = '<!--- CUT -->'
 BUILD_TIME = "1596163658"
 
 os.environ["SOURCE_DATE_EPOCH"] = BUILD_TIME
@@ -53,7 +54,7 @@ def update_top_packages_file() -> None:
         f.writelines([x + '\n' for x in project_names])
 
 
-def regenerate_data() -> None:
+def regenerate_data() -> Dict:
     reproducibility_data = {}
 
     # TODO: Add in top packages
@@ -63,10 +64,37 @@ def regenerate_data() -> None:
                                         'result': result,
                                         'hash_1': hash_1,
                                         'hash_2': hash_2}})
-        print(reproducibility_data)
 
+    # Let's save and commit this for transparency's sake.
     with open("site_data.json", "w") as f:
         f.write(json.dumps(reproducibility_data))
+
+    return reproducibility_data
+
+
+def regenerate_site(reproducibility_data: Dict) -> None:
+    """Dumb function that directly edits index.html"""
+    REPRODUCIBLE = '<li class="list-group-item list-group-item-success">✅&nbsp;&nbsp;'
+    NOT_REPRODUCIBLE = '<li class="list-group-item list-group-item-danger">❌&nbsp;&nbsp;'
+    TERMINATOR = "</li>"
+
+    with open("docs/index.html", "r") as f:
+        site_before = f.read()
+
+    prefix, _, postfix = site_before.split(SENTINEL)
+    site_after = prefix + '\n' + SENTINEL + '\n'
+
+    for project_name, project_data in reproducibility_data.items():
+        project_link = f'<a href="https://pypi.org/project/{project_name}/">{project_name}</a>'
+        if project_data['result']:
+            site_after += REPRODUCIBLE + project_link + TERMINATOR + '\n'
+        else:
+            site_after += NOT_REPRODUCIBLE + project_link + TERMINATOR + '\n'
+
+    site_after += '\n' + SENTINEL + '\n' + postfix
+
+    with open("docs/index.html", "w") as f:
+        f.write(site_after)
 
 
 def is_wheel_reproducible(project_name: str) -> Tuple[bool, str, str]:
@@ -81,39 +109,36 @@ def is_wheel_reproducible(project_name: str) -> Tuple[bool, str, str]:
     hash_results = []
     for _ in range(2):
         # Setup our build folder.
-        build_dir = str(uuid.uuid4())
-        os.mkdir(build_dir)
-        os.chdir(build_dir)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.chdir(tmpdir)
 
-        result = subprocess.check_output(
-            ['python3',
-            '-m',
-            'pip',
-            'wheel',
-            project_name,
-            '--no-binary',
-            ':all:',
-            '--no-cache-dir']
-        )
+            result = subprocess.check_output(
+                ['python3',
+                '-m',
+                'pip',
+                'wheel',
+                project_name,
+                '--no-binary',
+                ':all:',
+                '--no-cache-dir']
+            )
 
-        # A fun fact is that if the package name is foo-bar, the
-        # built wheel will have the format foo_bar. So, we replace
-        # - with _ for matching purposes.
-        project_name_wheel = project_name.replace('-', '_')
-        wheel_pattern = re.compile(fnmatch.translate(f'{project_name_wheel}*.whl'), re.IGNORECASE)
-        matching_wheels = [x for x in os.listdir() if re.match(wheel_pattern, x)]
+            # A fun fact is that if the package name is foo-bar, the
+            # built wheel will have the format foo_bar. So, we replace
+            # - with _ for matching purposes.
+            project_name_wheel = project_name.replace('-', '_')
+            wheel_pattern = re.compile(fnmatch.translate(f'{project_name_wheel}*.whl'), re.IGNORECASE)
+            matching_wheels = [x for x in os.listdir() if re.match(wheel_pattern, x)]
 
-        if len(matching_wheels) != 1:
-            raise RuntimeError(f'uh oh!!!!! found too few or two many wheels: {matching_wheels}')
+            if len(matching_wheels) != 1:
+                raise RuntimeError(f'uh oh!!!!! found too few or two many wheels: {matching_wheels}')
 
-        wheel_file_location = matching_wheels[0]
-        hash_result = subprocess.check_output(['shasum', '-a', '256', wheel_file_location])
-        hash_value = re.findall(REGEX_SHA_256_HASH, hash_result.decode('utf-8'))[0]
-        hash_results.append(hash_value)
+            wheel_file_location = matching_wheels[0]
+            hash_result = subprocess.check_output(['shasum', '-a', '256', wheel_file_location])
+            hash_value = re.findall(REGEX_SHA_256_HASH, hash_result.decode('utf-8'))[0]
+            hash_results.append(hash_value)
 
-        # Remove any built assets by deleting the entire build directory.
-        os.chdir(parent_dir)
-        shutil.rmtree(build_dir)
+            os.chdir(parent_dir)
 
     is_reproducible = hash_results[0] == hash_results[1]
     if not is_reproducible:
@@ -125,4 +150,6 @@ def is_wheel_reproducible(project_name: str) -> Tuple[bool, str, str]:
 
 
 if __name__ == "__main__":
-    regenerate_data()
+    data = regenerate_data()
+    print(data)
+    regenerate_site(data)

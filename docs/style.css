@@ -1,0 +1,29 @@
+.container {
+    width: auto;
+    max-width: 680px;
+    padding: 0 15px 30px;
+}
+
+.footer {
+background-color: #eeeeee;
+}
+
+a:link {
+    color: #222831;
+    text-decoration: none;
+}
+
+a:visited {
+    color: #4f8a8b;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #fbd46d;
+    text-decoration: underline;
+}
+
+a:active {
+    color: #222831;
+    text-decoration: underline;
+}
