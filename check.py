@@ -15,11 +15,11 @@ MONITOR_LIST_TXT = "watched_packages.txt"
 
 # Packages on FPF mirror + cryptography - THESE_DONT_BUILD_YET
 ADDL_PACKAGES_TO_MONITOR = [
-   "alembic", "arrow", "atomicwrites", "attrs", "certifi", "chardet", "click", "coverage",
+   "cryptography", "alembic", "arrow", "atomicwrites", "attrs", "certifi", "chardet", "click", "coverage",
    "flake8", "furl", "idna", "mako", "markupsafe", "mccabe", "more-itertools", "multidict",
    "orderedmultidict", "pathlib2", "pip-tools", "pluggy", "py", "pycodestyle", "pyflakes",
    "pytest", "pytest-cov", "pytest-random-order", "python-dateutil",
-   "python-editor", "pyyaml", "redis", "requests", "securedrop-sdk", "cryptography",
+   "python-editor", "pyyaml", "redis", "requests", "securedrop-sdk",
    "sip", "six", "sqlalchemy", "urllib3", "vcrpy", "werkzeug", "yarl"]
 THESE_DONT_BUILD_YET = ["pyqt5", "setuptools", "wrapt"]
 REGEX_SOURCE_TARBALL = r'\./[a-zA-Z0-9_.-]*\.tar\.gz'
@@ -77,40 +77,32 @@ def is_wheel_reproducible(project_name: str) -> Tuple[bool, str, str]:
 
     print(f'⏳ starting reproducibility check for {project_name}')
     parent_dir = os.getcwd()
-    work_folder = str(uuid.uuid4())
-    os.mkdir(work_folder)
-    os.chdir(work_folder)
-    work_folder_path = os.getcwd()
-
-    result = subprocess.check_output(
-        ["python3", "-m", "pip", "download", project_name,
-         "--no-binary", ":all:"])
-
-    tar_gz_location = re.findall(REGEX_SOURCE_TARBALL, result.decode('utf-8'))[0]
 
     hash_results = []
     for _ in range(2):
         # Setup our build folder.
-        subprocess.check_output(["tar", "-xf", tar_gz_location])
-        build_dir = tar_gz_location.lstrip('./').rstrip('.tar.gz')
+        build_dir = str(uuid.uuid4())
+        os.mkdir(build_dir)
         os.chdir(build_dir)
 
-        result = subprocess.check_output(['python3', 'setup.py', 'bdist_wheel'])
-        wheel_file_location = glob.glob('dist/*.whl')[0]
+        result = subprocess.check_output(
+            ['python3',
+            '-m',
+            'pip',
+            'wheel',
+            project_name,
+            '--no-binary',
+            ':all:',
+            '--no-cache-dir'])
+
+        wheel_file_location = glob.glob(f'{project_name}*.whl')[0]
         hash_result = subprocess.check_output(['shasum', '-a', '256', wheel_file_location])
         hash_value = re.findall(REGEX_SHA_256_HASH, hash_result.decode('utf-8'))[0]
         hash_results.append(hash_value)
 
-        # Remove any built assets by deleting the entire build directory. We leave
-        # the outer work folder around so that the source tarball(s) can be used
-        # for any subsequent build in the next loop iteration here.
-        os.chdir(work_folder_path)
+        # Remove any built assets by deleting the entire build directory.
+        os.chdir(parent_dir)
         shutil.rmtree(build_dir)
-
-    # Now return to the parent directory and remove the uuid-named folder which has
-    # the download tarball(s).
-    os.chdir(parent_dir)
-    shutil.rmtree(work_folder_path)
 
     is_reproducible = hash_results[0] == hash_results[1]
     if not is_reproducible:
