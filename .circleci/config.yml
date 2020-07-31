@@ -1,6 +1,6 @@
 version: 2
 jobs:
-  build:
+  build37:
     docker:
       - image: circleci/python:buster
     steps:
@@ -12,8 +12,22 @@ jobs:
             source .venv/bin/activate
             pip install -r requirements.txt
             python3 check.py
+  build38:
+    docker:
+      - image: circleci/python:3.8.0-buster
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies and regenerate reproducibility data.
+          command: |
+            virtualenv --python python3 .venv
+            source .venv/bin/activate
+            pip install -r requirements.txt
+            python3 check.py
+
 workflows:
   version: 2
   jobs_per_pr:
     jobs:
-      - build
+      - build37
+      - build38
