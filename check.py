@@ -23,13 +23,12 @@ ADDL_PACKAGES_TO_MONITOR = [
    "sip", "six", "sqlalchemy", "urllib3", "vcrpy", "werkzeug", "wrapt", "yarl"]
 
 # pyqt5: fails to build due to an error
-# pandas, grpcio: take too long to build (increase circleci build timeout to resolve)
 # scipy, scikit-learn: require lapack/blas support
 # enum34: build error - AttributeError: module 'enum' has no attribute 'IntFlag'
 # matplotlib: got hash mismatch during build o___O
 # ipython: matching logic for selecting built wheel doesn't work here due to ipython_genutils
-THESE_DONT_BUILD_YET = ["pyqt5", "pandas", "scipy", "grpcio", "enum34",
-                        "scikit-learn", "matplotlib", "ipython"]
+# pandas: Excluding because it's taking forever for it to build (more than 20m)
+THESE_DONT_BUILD_YET = ["pyqt5", "scipy", "enum34", "scikit-learn", "matplotlib", "ipython", "pandas"]
 REGEX_SOURCE_TARBALL = r'\./[a-zA-Z0-9_.-]*\.tar\.gz'
 REGEX_SHA_256_HASH = r'\b[a-f0-9]+'
 SENTINEL = '<!--- CUT -->'

@@ -9,6 +9,7 @@ common:
         pip install -r requirements.txt
         python3 check.py
         cat site_data.json
+      no_output_timeout: 20m
 
 version: 2
 jobs:
