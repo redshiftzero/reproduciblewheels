@@ -30,6 +30,18 @@ jobs:
     steps:
       - checkout
       - *install_dependencies_and_regen_data
+      - add_ssh_keys:
+          fingerprints:
+          - "76:dd:b7:82:dd:a2:ac:64:ec:38:ed:67:d7:91:6a:da"
+      - run:
+          name: commit changes and redeploy
+          command: |
+            git config user.email "jen+bot@freedom.press"
+            git config user.name "redshiftzero-bot"
+            git add docs/index.html
+            git add site_data.json
+            git commit -m "daily update"
+            git push origin main
 
 workflows:
   version: 2

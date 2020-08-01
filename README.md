@@ -1,10 +1,9 @@
 # reproduciblewheels
-Monitoring which wheels in the python ecosystem can be reproducibly built
+Monitoring which wheels in the python ecosystem can be reproducibly built (inspired by [pythonwheels.com](https://pythonwheels.com/))
 
 [![CircleCI](https://circleci.com/gh/redshiftzero/reproduciblewheels.svg?style=svg)](https://circleci.com/gh/redshiftzero/reproduciblewheels)
 
 ## Developer
-
 
 Example of regenerating the static site using the existing data:
 
