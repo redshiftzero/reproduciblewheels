@@ -32,8 +32,10 @@
     <main role="main" class="flex-shrink-0">
   <div class="container">
     <h1 class="mt-5">Reproducible Wheels</h1>
-    <p class="lead">Which Python projects have wheels that can be built reproducibly on Debian Buster?</p>
+    <p class="lead">Which Python projects can be built reproducibly on Debian Buster?</p>
     <p>These results are produced by building the most recent source tarball available on PyPI.</p>
+    <p>To compare your wheel hashes with the hashes of <a href="https://github.com/redshiftzero/reproduciblewheels/blob/main/site_data.json">these packages</a>,
+    <a href="https://reproducible-builds.org/docs/source-date-epoch/"><code>SOURCE_DATE_EPOCH</code></a> should be set to <code>1596163658</code> and you should pass the <code>--build /tmp/buildwheel</code> option to pip at build time.</p>
 
     <ul class="list-group">
 
