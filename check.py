@@ -2,6 +2,7 @@ import fnmatch
 import json
 import re
 import requests
+import shutil
 import subprocess
 import tempfile
 import os
@@ -119,38 +120,41 @@ def is_wheel_reproducible(project_name: str) -> Tuple[bool, str, str]:
     parent_dir = os.getcwd()
 
     hash_results = []
+    build_dir = '/tmp/test'
     for _ in range(2):
-        # Setup our build folder.
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.chdir(tmpdir)
+        os.mkdir(build_dir)
+        os.chdir(build_dir)
 
-            result = subprocess.check_output(
-                ['python3',
-                '-m',
-                'pip',
-                'wheel',
-                project_name,
-                '--no-binary',
-                ':all:',
-                '--no-cache-dir']
-            )
+        result = subprocess.check_output(
+            ['python3',
+            '-m',
+            'pip',
+            'wheel',
+            project_name,
+            '--no-binary',
+            ':all:',
+            '--no-cache-dir',
+            '--build',
+            build_dir]
+        )
 
-            # A fun fact is that if the package name is foo-bar, the
-            # built wheel will have the format foo_bar. So, we replace
-            # - with _ for matching purposes.
-            project_name_wheel = project_name.replace('-', '_')
-            wheel_pattern = re.compile(fnmatch.translate(f'{project_name_wheel}*.whl'), re.IGNORECASE)
-            matching_wheels = [x for x in os.listdir() if re.match(wheel_pattern, x)]
+        # A fun fact is that if the package name is foo-bar, the
+        # built wheel will have the format foo_bar. So, we replace
+        # - with _ for matching purposes.
+        project_name_wheel = project_name.replace('-', '_')
+        wheel_pattern = re.compile(fnmatch.translate(f'{project_name_wheel}*.whl'), re.IGNORECASE)
+        matching_wheels = [x for x in os.listdir() if re.match(wheel_pattern, x)]
 
-            if len(matching_wheels) != 1:
-                raise RuntimeError(f'uh oh!!!!! found too few or two many wheels: {matching_wheels}')
+        if len(matching_wheels) != 1:
+            raise RuntimeError(f'uh oh!!!!! found too few or two many wheels: {matching_wheels}')
 
-            wheel_file_location = matching_wheels[0]
-            hash_result = subprocess.check_output(['shasum', '-a', '256', wheel_file_location])
-            hash_value = re.findall(REGEX_SHA_256_HASH, hash_result.decode('utf-8'))[0]
-            hash_results.append(hash_value)
+        wheel_file_location = matching_wheels[0]
+        hash_result = subprocess.check_output(['shasum', '-a', '256', wheel_file_location])
+        hash_value = re.findall(REGEX_SHA_256_HASH, hash_result.decode('utf-8'))[0]
+        hash_results.append(hash_value)
 
-            os.chdir(parent_dir)
+        os.chdir(parent_dir)
+        shutil.rmtree(build_dir)
 
     is_reproducible = hash_results[0] == hash_results[1]
     if not is_reproducible:
