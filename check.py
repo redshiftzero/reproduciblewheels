@@ -120,7 +120,7 @@ def is_wheel_reproducible(project_name: str) -> Tuple[bool, str, str]:
     parent_dir = os.getcwd()
 
     hash_results = []
-    build_dir = '/tmp/test'
+    build_dir = '/tmp/buildwheel'
     for _ in range(2):
         os.mkdir(build_dir)
         os.chdir(build_dir)
